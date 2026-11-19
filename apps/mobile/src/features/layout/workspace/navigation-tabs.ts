@@ -19,11 +19,11 @@ import { resolveWorkspaceTabOrder } from "./workspace-tabs-state";
 export const WORKSPACE_TAB_LABELS = {
   ...NAVIGATION_TAB_LABELS,
   ...(Platform.OS === "ios"
-    ? {
-        threads: msg("Chats", { $context: "navigation tab, list of chat threads" }),
-        pullRequests: msg("PRs", { $context: "navigation tab, pull requests" }),
-      }
+    ? { pullRequests: msg("PRs", { $context: "navigation tab, pull requests" }) }
     : {}),
+  // This build views terminal chats: its tabs are the chats and the accounts' usage.
+  threads: msg("Chats", { $context: "navigation tab, list of chat threads" }),
+  usage: msg("Accounts", { $context: "navigation tab, Claude accounts and their usage limits" }),
 };
 
 export const NAVIGATION_TAB_ICONS = {
@@ -50,6 +50,9 @@ export function useHiddenNavigationTabs() {
       ? resolveHiddenNavigationTabs(saved?.hiddenNavigationTabs)
       : []),
     sharedSlotAbsentee(selected, saved?.sharedSlotTab),
+    // Terminal chats have no pull requests or issues to show.
+    "pullRequests" as const,
+    "issues" as const,
   ];
 }
 
