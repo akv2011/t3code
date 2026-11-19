@@ -3,7 +3,7 @@ import type { ExpoConfig } from "expo/config";
 import { BRAND_ASSET_PATHS } from "../../scripts/lib/brand-assets.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
 
-type AppVariant = "development" | "preview" | "production";
+type AppVariant = "development" | "preview" | "production" | "chats";
 
 const repoEnv = loadRepoEnv();
 Object.assign(process.env, repoEnv);
@@ -102,6 +102,15 @@ const VARIANT_CONFIG = {
     relyingParty: "clerk.t3.codes",
     assets: RELEASE_ASSETS,
   },
+  // A build for viewing terminal chats; installs beside the store app.
+  chats: {
+    appName: "Chats",
+    scheme: "chats-phone",
+    iosBundleIdentifier: "com.akv2011.chatsphone",
+    androidPackage: "com.akv2011.chatsphone",
+    relyingParty: "clerk.t3.codes",
+    assets: RELEASE_ASSETS,
+  },
 } as const;
 
 function resolveAppVariant(value: string | undefined): AppVariant {
@@ -109,11 +118,12 @@ function resolveAppVariant(value: string | undefined): AppVariant {
     case "development":
     case "preview":
     case "production":
+    case "chats":
       return value;
     case undefined:
       return "production";
     default:
-      throw new Error("APP_VARIANT must be development, preview, or production.");
+      throw new Error("APP_VARIANT must be development, preview, production, or chats.");
   }
 }
 
@@ -246,7 +256,8 @@ const config: ExpoConfig = {
   icon: variant.assets.appIcon,
   userInterfaceStyle: "automatic",
   updates: {
-    enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
+    // Upstream's update server would replace this build's own changes.
+    enabled: APP_VARIANT !== "chats" && repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
     url: "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454",
     checkAutomatically: "ON_LOAD",
     fallbackToCacheTimeout: 0,

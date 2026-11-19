@@ -1,0 +1,71 @@
+# Builds the "Chats" Android app (APP_VARIANT=chats): a release APK for arm64 phones,
+# signed with the repository's own key so each build installs over the last one.
+# Run by hand (Actions > Chats phone APK > Run workflow, or `gh workflow run`); the APK
+# is the run's artifact. Upstream's workflows are disabled in this repository.
+name: Chats phone APK
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: chats-phone-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CI: "1"
+      APP_VARIANT: chats
+      EXPO_NO_GIT_STATUS: "1"
+      EXPO_NO_TELEMETRY: "1"
+      T3CODE_MOBILE_UPDATES_ENABLED: "0"
+      NODE_OPTIONS: --max-old-space-size=5120
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL && df -h / | tail -1
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/mobile... --filter=@t3tools/scripts...
+
+      - name: Setup Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Generate the Android project
+        working-directory: apps/mobile
+        run: ./node_modules/.bin/expo prebuild --clean --platform android
+
+      - name: Use the repository's signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.CHATS_KEYSTORE_B64 }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "::error::CHATS_KEYSTORE_B64 is not set"; exit 1; }
+          # The generated release build signs with app/debug.keystore; this one is ours and stays the same.
+          echo "$KEYSTORE_B64" | base64 -d > apps/mobile/android/app/debug.keystore
+
+      - name: Build the APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g"
+
+      - name: Name the APK
+        run: |
+          short="$(git rev-parse --short HEAD)"
+          mkdir -p out
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "out/chats-${short}.apk"
+          ls -la out
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chats-apk
+          path: out/*.apk
+          retention-days: 30
