@@ -113,9 +113,12 @@ function messageEvents(input: {
   readonly threadId: ThreadId;
   readonly index: number;
   readonly message: HistoryMessage;
+  /** The source's own id for the message; ids then survive history that grows at both ends. */
+  readonly key?: string;
+  readonly ordinal?: number;
 }): ReadonlyArray<OrchestrationV2DomainEvent> {
-  const ordinal = input.index + 1;
-  const suffix = String(input.index).padStart(6, "0");
+  const ordinal = input.ordinal ?? input.index + 1;
+  const suffix = input.key ?? String(input.index).padStart(6, "0");
   const messageId = MessageId.make(`${input.threadId}:${suffix}`);
   const turnItemId = TurnItemId.make(
     `${IMPORT_EVENT_PREFIX}:turn-item:${input.threadId}:${suffix}`,
@@ -203,6 +206,7 @@ const make = Effect.gen(function* () {
   const runtimes = yield* ProviderSessionRuntime.ProviderSessionRuntimeRepository;
   const registry = yield* ProviderAdapterRegistry.ProviderAdapterRegistryV2;
   const threadCommands = yield* ThreadCommandExecutor.ThreadCommandExecutor;
+  const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const ceiling = settingsService.managedPolicy?.limits?.maxRuntimeMode;
   const importRecentAgentThreads = Effect.fn("importRecentAgentThreadsV2")(function* (
@@ -596,7 +600,42 @@ const make = Effect.gen(function* () {
     return yield* commit(messages);
   });
 
-  return { importRecentAgentThreads, importNativeHistory };
+  /**
+   * Appends what a native session gained after its import, such as turns typed in the
+   * agent's own terminal. A message whose key the thread already holds is skipped, so
+   * a resend is harmless; new ones take the thread's next ordinals and sort last.
+   */
+  const appendHistory = Effect.fn("appendHistoryV2")(function* (input: {
+    readonly threadId: ThreadId;
+    readonly messages: ReadonlyArray<HistoryMessage & { readonly key: string }>;
+  }) {
+    return yield* threadCommands.withLock(
+      input.threadId,
+      Effect.gen(function* () {
+        const records = yield* orchestrator.getThreadRecords(input.threadId, ["messages"]);
+        const held = new Set(records.messages.map((message) => String(message.id)));
+        const fresh = input.messages.filter(
+          (message) => !held.has(`${input.threadId}:${message.key}`),
+        );
+        if (fresh.length === 0) return 0;
+        const next = yield* projectionStore.getNextTurnItemOrdinal(input.threadId);
+        yield* eventSink.write({
+          events: fresh.flatMap((message, offset) =>
+            messageEvents({
+              threadId: input.threadId,
+              index: offset,
+              message,
+              key: message.key,
+              ordinal: next + offset,
+            }),
+          ),
+        });
+        return fresh.length;
+      }),
+    );
+  });
+
+  return { importRecentAgentThreads, importNativeHistory, appendHistory };
 });
 
 type AgentSessionImporterShape = Effect.Success<typeof make>;

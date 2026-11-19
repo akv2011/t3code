@@ -77,6 +77,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.serverAcceptAcpRegistryUrlAuth]: "server",
   [WS_METHODS.serverListAcpRegistrySessions]: "server",
   [WS_METHODS.serverImportAcpRegistrySession]: "server",
+  [WS_METHODS.serverAppendAcpRegistryMessages]: "server",
   [WS_METHODS.serverDeleteAcpRegistrySession]: "server",
   [WS_METHODS.serverListAcpRegistryProviders]: "server",
   [WS_METHODS.serverSetAcpRegistryProvider]: "server",

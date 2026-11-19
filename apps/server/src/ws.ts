@@ -2407,6 +2407,10 @@ export const layerWsRpc = (
             "provider.instance_id": input.instanceId,
             "project.id": input.projectId,
           }).pipe(Effect.andThen(acpRegistrySessions.importSession(input))),
+        [WS_METHODS.serverAppendAcpRegistryMessages]: (input) =>
+          Effect.annotateCurrentSpan({ "provider.instance_id": input.instanceId }).pipe(
+            Effect.andThen(acpRegistrySessions.appendMessages(input)),
+          ),
         [WS_METHODS.serverDeleteAcpRegistrySession]: (input) =>
           Effect.annotateCurrentSpan({
             "provider.instance_id": input.instanceId,

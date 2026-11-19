@@ -188,6 +188,27 @@ export const AcpRegistryImportSessionResult = Schema.Struct({
 });
 export type AcpRegistryImportSessionResult = typeof AcpRegistryImportSessionResult.Type;
 
+/** Messages an imported session gained since its import, keyed by the agent's own ids. */
+export const AcpRegistryAppendMessagesInput = Schema.Struct({
+  instanceId: ProviderInstanceId,
+  sessionId: AcpRegistrySessionId,
+  messages: Schema.Array(
+    Schema.Struct({
+      key: TrimmedNonEmptyString.check(Schema.isMaxLength(128)),
+      role: Schema.Literals(["user", "assistant"]),
+      text: Schema.String.check(Schema.isMaxLength(400_000)),
+      createdAt: TrimmedNonEmptyString.check(Schema.isMaxLength(64)),
+    }),
+  ).check(Schema.isMaxLength(500)),
+});
+export type AcpRegistryAppendMessagesInput = typeof AcpRegistryAppendMessagesInput.Type;
+
+export const AcpRegistryAppendMessagesResult = Schema.Struct({
+  threadId: ThreadId,
+  appended: Schema.Number,
+});
+export type AcpRegistryAppendMessagesResult = typeof AcpRegistryAppendMessagesResult.Type;
+
 export const AcpRegistryDeleteSessionInput = Schema.Struct({
   instanceId: ProviderInstanceId,
   projectId: ProjectId,

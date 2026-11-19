@@ -62,6 +62,8 @@ import {
   AcpRegistryDisableProviderResult,
   AcpRegistryImportSessionInput,
   AcpRegistryImportSessionResult,
+  AcpRegistryAppendMessagesInput,
+  AcpRegistryAppendMessagesResult,
   AcpRegistryListSessionsInput,
   AcpRegistryListSessionsResult,
   AcpRegistryListProvidersInput,
@@ -559,6 +561,7 @@ export const WS_METHODS = {
   serverAcceptAcpRegistryUrlAuth: "server.acceptAcpRegistryUrlAuth",
   serverListAcpRegistrySessions: "server.listAcpRegistrySessions",
   serverImportAcpRegistrySession: "server.importAcpRegistrySession",
+  serverAppendAcpRegistryMessages: "server.appendAcpRegistryMessages",
   serverDeleteAcpRegistrySession: "server.deleteAcpRegistrySession",
   serverListAcpRegistryProviders: "server.listAcpRegistryProviders",
   serverSetAcpRegistryProvider: "server.setAcpRegistryProvider",
@@ -971,6 +974,12 @@ const WsServerListAcpRegistrySessionsRpc = Rpc.make(WS_METHODS.serverListAcpRegi
 const WsServerImportAcpRegistrySessionRpc = Rpc.make(WS_METHODS.serverImportAcpRegistrySession, {
   payload: AcpRegistryImportSessionInput,
   success: AcpRegistryImportSessionResult,
+  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
+});
+
+const WsServerAppendAcpRegistryMessagesRpc = Rpc.make(WS_METHODS.serverAppendAcpRegistryMessages, {
+  payload: AcpRegistryAppendMessagesInput,
+  success: AcpRegistryAppendMessagesResult,
   error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
 });
 
@@ -2313,6 +2322,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerAcceptAcpRegistryUrlAuthRpc,
   WsServerListAcpRegistrySessionsRpc,
   WsServerImportAcpRegistrySessionRpc,
+  WsServerAppendAcpRegistryMessagesRpc,
   WsServerDeleteAcpRegistrySessionRpc,
   WsServerListAcpRegistryProvidersRpc,
   WsServerSetAcpRegistryProviderRpc,

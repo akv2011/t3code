@@ -2,6 +2,8 @@ import {
   AcpRegistryOperationError,
   CommandId,
   ThreadId,
+  type AcpRegistryAppendMessagesInput,
+  type AcpRegistryAppendMessagesResult,
   type AcpRegistryImportSessionInput,
   type AcpRegistryImportSessionResult,
   type Project,
@@ -61,6 +63,10 @@ export class AcpRegistrySessions extends Context.Service<
     readonly importSession: (
       input: AcpRegistryImportSessionInput,
     ) => Effect.Effect<AcpRegistryImportSessionResult, AcpRegistryOperationError>;
+    /** Appends messages the session gained since its import to the thread it was imported as. */
+    readonly appendMessages: (
+      input: AcpRegistryAppendMessagesInput,
+    ) => Effect.Effect<AcpRegistryAppendMessagesResult, AcpRegistryOperationError>;
   }
 >()("t3/provider/AcpRegistrySessions") {}
 
@@ -265,7 +271,34 @@ const make = Effect.gen(function* () {
     return { threadId, imported: true } as const;
   }, coordinator.withSessionMutation);
 
-  return AcpRegistrySessions.of({ project, sessionManager, findOwner, importSession });
+  const appendMessages = Effect.fn("AcpRegistrySessions.appendMessages")(function* (
+    input: AcpRegistryAppendMessagesInput,
+  ) {
+    const { instance } = yield* sessionManager(input.instanceId);
+    const idInput = {
+      driver: instance.driverKind,
+      instanceId: input.instanceId,
+      sessionId: input.sessionId,
+    };
+    const threadId = (yield* findOwner(idInput)) ?? importedThreadId(idInput);
+    const failed = (message: string) => (cause: unknown) =>
+      new AcpRegistryOperationError({ reason: "session_import_failed", message, cause });
+    const thread = yield* threadManagement
+      .getThreadShell(threadId)
+      .pipe(Effect.mapError(failed("Could not inspect the imported ACP session.")));
+    if (thread === null) {
+      return yield* new AcpRegistryOperationError({
+        reason: "session_import_failed",
+        message: "The ACP session has not been imported yet.",
+      });
+    }
+    const appended = yield* agentSessionImporter
+      .appendHistory({ threadId, messages: input.messages })
+      .pipe(Effect.mapError(failed("Could not append the ACP session's new messages.")));
+    return { threadId, appended };
+  }, coordinator.withSessionMutation);
+
+  return AcpRegistrySessions.of({ project, sessionManager, findOwner, importSession, appendMessages });
 });
 
 export const layer = Layer.effect(AcpRegistrySessions, make);
